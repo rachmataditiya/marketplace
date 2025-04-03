@@ -94,13 +94,6 @@ export function Navbar() {
                     >
                       Profil
                     </Link>
-                    <Link 
-                      to="/orders" 
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      onClick={() => setShowUserMenu(false)}
-                    >
-                      Pesanan
-                    </Link>
                     <button
                       onClick={handleSignOut}
                       className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -162,6 +155,14 @@ export function Navbar() {
                   </span>
                 )}
               </Link>
+              <Link
+                to="/orders"
+                className="flex items-center px-3 py-2 text-gray-600 hover:text-indigo-600 hover:bg-gray-50 rounded-md"
+                onClick={() => setShowMenu(false)}
+                >
+                <Package className="h-5 w-5 mr-2" />
+                Pesanan
+              </Link>
               {profile ? (
                 <>
                   <Link
@@ -171,14 +172,6 @@ export function Navbar() {
                   >
                     <User className="h-5 w-5 mr-2" />
                     Profil
-                  </Link>
-                  <Link
-                    to="/orders"
-                    className="flex items-center px-3 py-2 text-gray-600 hover:text-indigo-600 hover:bg-gray-50 rounded-md"
-                    onClick={() => setShowMenu(false)}
-                  >
-                    <Package className="h-5 w-5 mr-2" />
-                    Pesanan
                   </Link>
                   <button
                     onClick={() => {
