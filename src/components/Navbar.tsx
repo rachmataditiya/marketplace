@@ -60,7 +60,7 @@ export function Navbar() {
           <div className="hidden md:flex items-center space-x-8">
             <Link to="/" className="flex items-center text-gray-600 hover:text-indigo-600">
               <Home className="h-5 w-5 mr-1" />
-              Beranda
+              Home
             </Link>
             <Link to="/products" className="flex items-center text-gray-600 hover:text-indigo-600">
               <Package className="h-5 w-5 mr-1" />
@@ -139,7 +139,7 @@ export function Navbar() {
                 onClick={() => setShowMenu(false)}
               >
                 <Home className="h-5 w-5 mr-2" />
-                Beranda
+                Home
               </Link>
               <Link
                 to="/products"
@@ -148,14 +148,6 @@ export function Navbar() {
               >
                 <Package className="h-5 w-5 mr-2" />
                 Produk
-              </Link>
-              <Link
-                to="/vendors"
-                className="flex items-center px-3 py-2 text-gray-600 hover:text-indigo-600 hover:bg-gray-50 rounded-md"
-                onClick={() => setShowMenu(false)}
-              >
-                <Store className="h-5 w-5 mr-2" />
-                UMKM
               </Link>
               <Link
                 to="/cart"
