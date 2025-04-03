@@ -12,11 +12,16 @@ import { Reports } from './Reports';
 
 // Helper function to convert VAPID key to Uint8Array
 function urlBase64ToUint8Array(base64String: string) {
+  // Remove any whitespace
+  base64String = base64String.trim();
+  
+  // Add padding if needed
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
   const base64 = (base64String + padding)
     .replace(/\-/g, '+')
     .replace(/_/g, '/');
 
+  // Convert to binary
   const rawData = window.atob(base64);
   const outputArray = new Uint8Array(rawData.length);
 
@@ -61,6 +66,11 @@ export function VendorDashboard() {
         
         if (!vapidPublicKey) {
           throw new Error('VAPID public key not found in environment variables');
+        }
+
+        // Validate VAPID key format
+        if (!vapidPublicKey.startsWith('BP')) {
+          throw new Error('Invalid VAPID public key format. Key should start with "BP"');
         }
 
         const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
