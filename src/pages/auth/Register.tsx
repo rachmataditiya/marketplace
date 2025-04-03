@@ -3,12 +3,14 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Mail, Lock, User, Store, AlertCircle } from 'lucide-react';
 
+type UserRole = 'customer' | 'vendor';
+
 export function Register() {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     name: '',
-    role: 'customer' as const,
+    role: 'customer' as UserRole,
     storeName: '',
     storeDescription: '',
   });
@@ -18,7 +20,11 @@ export function Register() {
   const { signUp } = useAuth();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: name === 'role' ? value as UserRole : value
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -34,7 +40,11 @@ export function Register() {
         formData.role === 'vendor' ? formData.storeName : undefined,
         formData.role === 'vendor' ? formData.storeDescription : undefined
       );
-      navigate('/');
+      if (formData.role === 'vendor') {
+        navigate('/vendor/');
+      } else {
+        navigate('/');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred during registration');
     } finally {

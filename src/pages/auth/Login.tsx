@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Mail, Lock, AlertCircle } from 'lucide-react';
@@ -9,7 +9,18 @@ export function Login() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { signIn } = useAuth();
+  const { signIn, profile, session } = useAuth();
+
+  // Effect untuk menangani redirect setelah profile di-update
+  useEffect(() => {
+    if (session && profile) {
+      if (profile.role === 'vendor') {
+        navigate('/vendor/');
+      } else {
+        navigate('/');
+      }
+    }
+  }, [session, profile, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,7 +29,6 @@ export function Login() {
 
     try {
       await signIn(email, password);
-      navigate('/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred during login');
     } finally {
