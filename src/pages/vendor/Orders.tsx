@@ -135,6 +135,10 @@ export function Orders() {
     return (showTodayOnly ? isToday : true) && matchesSearch;
   });
 
+  const isOfflineOrder = (order: ExtendedOrder) => {
+    return order.customer_id === profile?.id;
+  };
+
   return (
     <div className="h-full flex flex-col bg-gray-50 p-4">
       {/* Main Container */}
@@ -221,10 +225,16 @@ export function Orders() {
                           </p>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getStatusBadge(order.status)}`}>
-                            <StatusIcon className="h-3.5 w-3.5 mr-1.5" />
-                            {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                          </div>
+                          {isOfflineOrder(order) ? (
+                            <div className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                              Offline Order
+                            </div>
+                          ) : (
+                            <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getStatusBadge(order.status)}`}>
+                              <StatusIcon className="h-3.5 w-3.5 mr-1.5" />
+                              {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                            </div>
+                          )}
                           <ChevronRight className="h-4 w-4 text-gray-400" />
                         </div>
                       </div>
@@ -233,10 +243,12 @@ export function Orders() {
                     {/* Order Summary */}
                     <div className="px-4 py-3">
                       <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-500">Customer</span>
-                          <span className="text-sm font-medium text-gray-900">{order.customer.name}</span>
-                        </div>
+                        {!isOfflineOrder(order) && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-500">Customer</span>
+                            <span className="text-sm font-medium text-gray-900">{order.customer.name}</span>
+                          </div>
+                        )}
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-gray-500">Total</span>
                           <span className="text-sm font-bold text-indigo-600">
@@ -273,14 +285,16 @@ export function Orders() {
             <div className="p-6">
               <div className="space-y-6">
                 {/* Customer Info */}
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500 mb-2">Informasi Pelanggan</h4>
-                  <div className="space-y-1">
-                    <p className="text-sm text-gray-900">{selectedOrder.customer.name}</p>
-                    <p className="text-sm text-gray-600">{selectedOrder.customer.phone}</p>
-                    <p className="text-sm text-gray-600">{selectedOrder.customer.address}</p>
+                {!isOfflineOrder(selectedOrder) && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500 mb-2">Informasi Pelanggan</h4>
+                    <div className="space-y-1">
+                      <p className="text-sm text-gray-900">{selectedOrder.customer.name}</p>
+                      <p className="text-sm text-gray-600">{selectedOrder.customer.phone}</p>
+                      <p className="text-sm text-gray-600">{selectedOrder.customer.address}</p>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Order Items */}
                 <div>
