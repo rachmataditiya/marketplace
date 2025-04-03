@@ -23,23 +23,32 @@ export function VendorDashboard() {
 
     const setupPushNotifications = async () => {
       try {
+        console.log('Starting push notification setup...');
+        
         // Request permission
         const permission = await Notification.requestPermission();
+        console.log('Notification permission:', permission);
+        
         if (permission !== 'granted') {
           console.log('Notification permission denied');
           return;
         }
 
         // Get service worker registration
+        console.log('Registering service worker...');
         const registration = await navigator.serviceWorker.register('/sw.js');
+        console.log('Service worker registered:', registration);
         
         // Get push subscription
+        console.log('Subscribing to push notifications...');
         const subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: import.meta.env.VITE_VAPID_PUBLIC_KEY
         });
+        console.log('Push subscription:', subscription);
 
         // Save subscription to Supabase
+        console.log('Saving subscription to Supabase...');
         const { error } = await supabase
           .from('push_subscriptions')
           .upsert({
@@ -48,7 +57,11 @@ export function VendorDashboard() {
             created_at: new Date().toISOString()
           });
 
-        if (error) throw error;
+        if (error) {
+          console.error('Error saving subscription:', error);
+          throw error;
+        }
+        console.log('Subscription saved successfully');
       } catch (error) {
         console.error('Error setting up push notifications:', error);
       }
@@ -120,15 +133,20 @@ export function VendorDashboard() {
 
             // Send push notification
             try {
+              console.log('Fetching push subscriptions...');
               const { data: subscriptions } = await supabase
                 .from('push_subscriptions')
                 .select('subscription')
                 .eq('user_id', profile.id);
 
+              console.log('Found subscriptions:', subscriptions);
+
               if (subscriptions && subscriptions.length > 0) {
                 const subscription = subscriptions[0].subscription;
+                console.log('Using subscription:', subscription);
                 
                 // Send push notification using Supabase Edge Functions
+                console.log('Invoking send-push-notification function...');
                 const { error } = await supabase.functions.invoke('send-push-notification', {
                   body: {
                     subscription,
@@ -140,10 +158,16 @@ export function VendorDashboard() {
                   }
                 });
 
-                if (error) throw error;
+                if (error) {
+                  console.error('Error sending push notification:', error);
+                  throw error;
+                }
+                console.log('Push notification sent successfully');
+              } else {
+                console.log('No push subscriptions found for user');
               }
             } catch (error) {
-              console.error('Error sending push notification:', error);
+              console.error('Error in push notification process:', error);
             }
           }
         }
