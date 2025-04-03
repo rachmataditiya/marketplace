@@ -1,7 +1,9 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { Store, Package, ShoppingBag, BarChart2, Menu, X, User, LogOut } from 'lucide-react';
+import { Store, Package, ShoppingBag, BarChart2, Menu, X, User, LogOut, Bell } from 'lucide-react';
+import toast, { Toaster } from 'react-hot-toast';
 import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabase';
 import { Products } from './Products';
 import { Orders } from './Orders';
 import { POS } from './POS';
@@ -13,11 +15,153 @@ export function VendorDashboard() {
   const location = useLocation();
   const { profile, signOut } = useAuth();
   const [showSidebar, setShowSidebar] = React.useState(false);
+  const [newOrdersCount, setNewOrdersCount] = useState(0);
+
+  // Request notification permission and setup push notifications
+  useEffect(() => {
+    if (!profile) return;
+
+    const setupPushNotifications = async () => {
+      try {
+        // Request permission
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          console.log('Notification permission denied');
+          return;
+        }
+
+        // Get service worker registration
+        const registration = await navigator.serviceWorker.register('/sw.js');
+        
+        // Get push subscription
+        const subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: import.meta.env.VITE_VAPID_PUBLIC_KEY
+        });
+
+        // Save subscription to Supabase
+        const { error } = await supabase
+          .from('push_subscriptions')
+          .upsert({
+            user_id: profile.id,
+            subscription: subscription,
+            created_at: new Date().toISOString()
+          });
+
+        if (error) throw error;
+      } catch (error) {
+        console.error('Error setting up push notifications:', error);
+      }
+    };
+
+    setupPushNotifications();
+  }, [profile]);
 
   // Hide sidebar when location changes
   useEffect(() => {
     setShowSidebar(false);
   }, [location]);
+
+  // Subscribe to new orders
+  useEffect(() => {
+    if (!profile) return;
+
+    // Subscribe to new orders
+    const orderSubscription = supabase
+      .channel('new_orders')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'orders',
+          filter: `vendor_id=eq.${profile.id}`,
+        },
+        async (payload) => {
+          // Only count if it's an online order (customer_id !== vendor_id)
+          if (payload.new.customer_id !== profile.id) {
+            setNewOrdersCount(prev => prev + 1);
+            
+            // Show toast notification
+            toast.custom((t) => (
+              <div
+                className={`${
+                  t.visible ? 'animate-enter' : 'animate-leave'
+                } max-w-md w-full bg-white shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5`}
+              >
+                <div className="flex-1 w-0 p-4">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0 pt-0.5">
+                      <ShoppingBag className="h-10 w-10 text-indigo-600" />
+                    </div>
+                    <div className="ml-3 flex-1">
+                      <p className="text-sm font-medium text-gray-900">
+                        Pesanan Baru
+                      </p>
+                      <p className="mt-1 text-sm text-gray-500">
+                        Ada pesanan baru yang membutuhkan perhatian Anda
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex border-l border-gray-200">
+                  <button
+                    onClick={() => {
+                      toast.dismiss(t.id);
+                      navigate('/vendor/orders');
+                    }}
+                    className="w-full border border-transparent rounded-none rounded-r-lg p-4 flex items-center justify-center text-sm font-medium text-indigo-600 hover:text-indigo-500 focus:outline-none"
+                  >
+                    Lihat
+                  </button>
+                </div>
+              </div>
+            ));
+
+            // Send push notification
+            try {
+              const { data: subscriptions } = await supabase
+                .from('push_subscriptions')
+                .select('subscription')
+                .eq('user_id', profile.id);
+
+              if (subscriptions && subscriptions.length > 0) {
+                const subscription = subscriptions[0].subscription;
+                
+                // Send push notification using Supabase Edge Functions
+                const { error } = await supabase.functions.invoke('send-push-notification', {
+                  body: {
+                    subscription,
+                    notification: {
+                      title: 'Pesanan Baru',
+                      body: 'Ada pesanan baru yang membutuhkan perhatian Anda',
+                      url: '/vendor/orders'
+                    }
+                  }
+                });
+
+                if (error) throw error;
+              }
+            } catch (error) {
+              console.error('Error sending push notification:', error);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscription
+    return () => {
+      orderSubscription.unsubscribe();
+    };
+  }, [profile, navigate]);
+
+  // Reset new orders count when visiting orders page
+  useEffect(() => {
+    if (location.pathname === '/vendor/orders') {
+      setNewOrdersCount(0);
+    }
+  }, [location.pathname]);
 
   const menuItems = [
     { icon: Store, label: 'Penjualan', path: '' },
@@ -31,6 +175,7 @@ export function VendorDashboard() {
 
   return (
     <div className="fixed inset-0 flex flex-col bg-gray-50">
+      <Toaster position="top-right" />
       {/* Header */}
       <div className="flex-none bg-white border-b shadow-sm">
         <div className="px-4 h-16 flex items-center justify-between">
@@ -102,7 +247,7 @@ export function VendorDashboard() {
                       setShowSidebar(false);
                     }}
                     className={`
-                      group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg w-full transition-colors
+                      group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg w-full transition-colors relative
                       ${item.path === currentPath
                         ? 'bg-indigo-50 text-indigo-600 shadow-sm'
                         : 'text-gray-600 hover:bg-gray-50 hover:text-indigo-600'
@@ -111,6 +256,11 @@ export function VendorDashboard() {
                   >
                     <item.icon className="mr-3 h-5 w-5" />
                     {item.label}
+                    {item.path === 'orders' && newOrdersCount > 0 && (
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
+                        {newOrdersCount}
+                      </span>
+                    )}
                   </button>
                 ))}
               </nav>

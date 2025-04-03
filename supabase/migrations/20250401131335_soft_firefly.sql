@@ -111,12 +111,22 @@ CREATE TABLE IF NOT EXISTS order_items (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- Push subscriptions table
+CREATE TABLE push_subscriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  subscription JSONB NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
 -- Enable RLS
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vendors ENABLE ROW LEVEL SECURITY;
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
 
 -- Profiles policies
 DO $$ BEGIN
@@ -218,6 +228,11 @@ DO $$ BEGIN
       )
     );
 END $$;
+
+-- Push subscriptions policies
+CREATE POLICY "Users can manage their own push subscriptions"
+  ON push_subscriptions FOR ALL
+  USING (auth.uid() = user_id);
 
 -- Functions
 CREATE OR REPLACE FUNCTION update_updated_at()

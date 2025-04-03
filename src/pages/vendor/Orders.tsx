@@ -34,8 +34,82 @@ export function Orders() {
   useEffect(() => {
     if (profile) {
       fetchOrders();
+      setupRealtimeSubscription();
     }
   }, [profile]);
+
+  const setupRealtimeSubscription = () => {
+    if (!profile) return;
+
+    const orderSubscription = supabase
+      .channel('orders_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
+          schema: 'public',
+          table: 'orders',
+          filter: `vendor_id=eq.${profile.id}`,
+        },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            // Fetch the new order with all its relations
+            fetchNewOrder(payload.new.id);
+          } else if (payload.eventType === 'UPDATE') {
+            // Update the existing order in the state
+            setOrders(prevOrders => 
+              prevOrders.map(order => 
+                order.id === payload.new.id 
+                  ? { ...order, ...payload.new } 
+                  : order
+              )
+            );
+          } else if (payload.eventType === 'DELETE') {
+            // Remove the deleted order from the state
+            setOrders(prevOrders => 
+              prevOrders.filter(order => order.id !== payload.old.id)
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      orderSubscription.unsubscribe();
+    };
+  };
+
+  const fetchNewOrder = async (orderId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          customer:customer_id (
+            name,
+            phone,
+            address
+          ),
+          order_items (
+            id,
+            quantity,
+            price_at_time,
+            product:product_id (
+              name,
+              price
+            )
+          )
+        `)
+        .eq('id', orderId)
+        .single();
+
+      if (error) throw error;
+
+      setOrders(prevOrders => [data, ...prevOrders]);
+    } catch (error) {
+      console.error('Error fetching new order:', error);
+    }
+  };
 
   const fetchOrders = async () => {
     if (!profile) return;
