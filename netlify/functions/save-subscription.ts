@@ -1,5 +1,4 @@
 import { Handler } from '@netlify/functions';
-import { createClient } from '@supabase/supabase-js';
 
 const handler: Handler = async (event) => {
   // Hanya terima POST request
@@ -27,46 +26,8 @@ const handler: Handler = async (event) => {
       };
     }
 
-    // Get user ID from auth token
-    const authHeader = event.headers['authorization'];
-    if (!authHeader) {
-      return {
-        statusCode: 401,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ error: 'Unauthorized' }),
-      };
-    }
-
-    const token = authHeader.replace('Bearer ', '');
-    const supabase = createClient(
-      process.env.VITE_SUPABASE_URL!,
-      process.env.VITE_SUPABASE_ANON_KEY!
-    );
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) {
-      return {
-        statusCode: 401,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ error: 'Unauthorized' }),
-      };
-    }
-
-    // Save subscription to database
-    const { error: dbError } = await supabase
-      .from('push_subscriptions')
-      .upsert({
-        user_id: user.id,
-        subscription: subscription
-      });
-
-    if (dbError) {
-      throw dbError;
-    }
+    // Simpan subscription ke memory (temporary)
+    console.log('Subscription saved:', subscription);
 
     return {
       statusCode: 200,

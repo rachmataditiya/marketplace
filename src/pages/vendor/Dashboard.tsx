@@ -131,32 +131,16 @@ export function VendorDashboard() {
       });
 
       // Simpan subscription ke database
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError) {
-        throw sessionError;
-      }
-
-      if (!session) {
-        throw new Error('No active session');
-      }
-
-      const response = await fetch('/api/save-subscription', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({
+      const { error } = await supabase
+        .from('push_subscriptions')
+        .upsert({
+          user_id: profile.id,
           subscription: subscription.toJSON()
-        })
-      });
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`Failed to save subscription: ${errorData.message || response.statusText}`);
+      if (error) {
+        throw error;
       }
-
-      console.log('Subscription saved to database');
 
       // Setup visibility change handler
       document.addEventListener('visibilitychange', async () => {
