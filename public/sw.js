@@ -10,8 +10,8 @@ self.addEventListener('push', function(event) {
       
       const options = {
         body: data.body,
-        icon: '/android-chrome-192x192.png',
-        badge: '/android-chrome-192x192.png',
+        icon: data.icon || '/android-chrome-192x192.png',
+        badge: data.badge || '/android-chrome-192x192.png',
         vibrate: [100, 50, 100],
         data: data.data || {},
         actions: data.actions || [],
@@ -20,8 +20,14 @@ self.addEventListener('push', function(event) {
       };
 
       console.log('[Service Worker] Showing notification with options:', options);
+      
+      // Pastikan event.waitUntil digunakan dengan benar
       event.waitUntil(
-        self.registration.showNotification(data.title, options)
+        Promise.resolve()
+          .then(() => {
+            console.log('[Service Worker] About to show notification');
+            return self.registration.showNotification(data.title, options);
+          })
           .then(() => {
             console.log('[Service Worker] Notification shown successfully');
             return self.registration.getNotifications();
