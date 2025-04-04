@@ -38,6 +38,43 @@ export function VendorDashboard() {
   const [showSidebar, setShowSidebar] = React.useState(false);
   const [newOrdersCount, setNewOrdersCount] = useState(0);
 
+  const sendPushNotification = async (subscription: PushSubscription) => {
+    try {
+      const response = await fetch('/api/send-push-notification', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          subscription,
+          notification: {
+            title: 'Pesanan Baru!',
+            body: 'Ada pesanan baru yang masuk',
+            icon: '/icon-192x192.png',
+            badge: '/badge-72x72.png',
+            data: {
+              url: '/vendor/orders'
+            },
+            actions: [
+              {
+                action: 'view',
+                title: 'Lihat Pesanan'
+              }
+            ]
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send push notification');
+      }
+
+      console.log('Push notification sent successfully');
+    } catch (error) {
+      console.error('Error sending push notification:', error);
+    }
+  };
+
   // Request notification permission and setup push notifications
   useEffect(() => {
     if (!profile) return;
@@ -55,50 +92,44 @@ export function VendorDashboard() {
           return;
         }
 
-        // Get service worker registration
+        // Register service worker
         console.log('Registering service worker...');
         const registration = await navigator.serviceWorker.register('/sw.js');
         console.log('Service worker registered:', registration);
-        
-        // Convert VAPID key to Uint8Array
+
+        // Get VAPID public key
         const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
         console.log('VAPID Public Key:', vapidPublicKey);
-        
+
         if (!vapidPublicKey) {
-          throw new Error('VAPID public key not found in environment variables');
+          throw new Error('VAPID public key not found');
         }
 
-        // Validate VAPID key format
-        if (!vapidPublicKey.startsWith('BP')) {
-          throw new Error('Invalid VAPID public key format. Key should start with "BP"');
-        }
-
+        // Convert VAPID key to Uint8Array
         const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
-        console.log('Converted application server key:', applicationServerKey);
-        
-        // Get push subscription
-        console.log('Subscribing to push notifications...');
+
+        // Subscribe to push notifications
         const subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: applicationServerKey
+          applicationServerKey
         });
-        console.log('Push subscription:', subscription);
 
-        // Save subscription to Supabase
-        console.log('Saving subscription to Supabase...');
+        console.log('Push notification subscription:', subscription);
+
+        // Simpan subscription ke database
         const { error } = await supabase
           .from('push_subscriptions')
           .upsert({
-            user_id: profile.id,
-            subscription: subscription,
-            created_at: new Date().toISOString()
+            user_id: profile?.id,
+            subscription: subscription.toJSON()
           });
 
         if (error) {
-          console.error('Error saving subscription:', error);
-          throw error;
+          console.error('Error saving push subscription:', error);
+          return;
         }
-        console.log('Subscription saved successfully');
+
+        console.log('Push notification setup completed successfully');
       } catch (error) {
         console.error('Error setting up push notifications:', error);
       }
