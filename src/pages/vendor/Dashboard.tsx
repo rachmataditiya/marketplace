@@ -38,53 +38,6 @@ export function VendorDashboard() {
   const [showSidebar, setShowSidebar] = React.useState(false);
   const [newOrdersCount, setNewOrdersCount] = useState(0);
 
-  const sendPushNotification = async (subscription: PushSubscription) => {
-    try {
-      console.log('Attempting to send push notification...');
-      console.log('Subscription details:', {
-        endpoint: subscription.endpoint,
-        keys: {
-          p256dh: subscription.getKey('p256dh'),
-          auth: subscription.getKey('auth')
-        }
-      });
-
-      const response = await fetch('/api/send-push-notification', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          subscription,
-          notification: {
-            title: 'Pesanan Baru!',
-            body: 'Ada pesanan baru yang membutuhkan perhatian Anda',
-            icon: '/android-chrome-192x192.png',
-            badge: '/android-chrome-192x192.png',
-            data: {
-              url: '/vendor/orders'
-            },
-            actions: [
-              {
-                action: 'view',
-                title: 'Lihat Pesanan'
-              }
-            ]
-          }
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`Failed to send push notification: ${errorData.message || response.statusText}`);
-      }
-
-      console.log('Push notification sent successfully');
-    } catch (error) {
-      console.error('Error sending push notification:', error);
-    }
-  };
-
   const setupPushNotifications = async () => {
     try {
       // Cek apakah service worker sudah terdaftar
