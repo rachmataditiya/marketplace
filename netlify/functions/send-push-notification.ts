@@ -28,10 +28,14 @@ const handler: Handler = async (event) => {
     }
 
     // Gunakan VAPID keys dari environment variables
-    const vapidPublicKey = process.env.VITE_VAPID_PUBLIC_KEY;
-    const vapidPrivateKey = process.env.VITE_VAPID_PRIVATE_KEY;
+    const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
+    const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
 
     if (!vapidPublicKey || !vapidPrivateKey) {
+      console.error('VAPID keys not found:', {
+        hasPublicKey: !!vapidPublicKey,
+        hasPrivateKey: !!vapidPrivateKey
+      });
       return {
         statusCode: 500,
         headers: {
@@ -48,7 +52,7 @@ const handler: Handler = async (event) => {
 
     // Set VAPID keys
     webpush.setVapidDetails(
-      'mailto:raditiya@me.com', // Ganti dengan email Anda
+      'mailto:raditiya@me.com',
       vapidPublicKey,
       vapidPrivateKey
     );
@@ -75,7 +79,7 @@ const handler: Handler = async (event) => {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ error: 'Failed to send push notification' }),
+      body: JSON.stringify({ error: 'Failed to send push notification', details: error.message }),
     };
   }
 };
