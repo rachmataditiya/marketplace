@@ -3,6 +3,7 @@ import { Package, Truck, CheckCircle, XCircle, Loader2, Search, X, ChevronRight,
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import type { Order } from '../../types';
+import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 interface ExtendedOrder extends Order {
   customer: {
@@ -41,74 +42,178 @@ export function Orders() {
   const setupRealtimeSubscription = () => {
     if (!profile) return;
 
-    const orderSubscription = supabase
-      .channel('orders_changes')
+    console.log('Setting up Supabase realtime subscription for orders');
+
+    // Buat channel yang unik per vendor
+    const channel = supabase.channel(`orders-${profile.id}`);
+    
+    channel
       .on(
         'postgres_changes',
         {
-          event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
+          event: '*',
           schema: 'public',
           table: 'orders',
           filter: `vendor_id=eq.${profile.id}`,
         },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            // Fetch the new order with all its relations
-            fetchNewOrder(payload.new.id);
-          } else if (payload.eventType === 'UPDATE') {
-            // Update the existing order in the state
-            setOrders(prevOrders => 
-              prevOrders.map(order => 
-                order.id === payload.new.id 
-                  ? { ...order, ...payload.new } 
-                  : order
-              )
-            );
-          } else if (payload.eventType === 'DELETE') {
-            // Remove the deleted order from the state
+        async (payload: RealtimePostgresChangesPayload<Order>) => {
+          console.log('Received Supabase realtime event:', {
+            eventType: payload.eventType,
+            orderId: payload.new?.id || payload.old?.id,
+            oldStatus: payload.old?.status,
+            newStatus: payload.new?.status,
+            fullPayload: payload
+          });
+
+          if (payload.eventType === 'INSERT' && payload.new) {
+            try {
+              // Fetch order baru dengan semua relasinya
+              const { data: newOrder, error } = await supabase
+                .from('orders')
+                .select(`
+                  *,
+                  customer:customer_id (
+                    name,
+                    phone,
+                    address
+                  ),
+                  order_items (
+                    id,
+                    quantity,
+                    price_at_time,
+                    product:product_id (
+                      name,
+                      price
+                    )
+                  )
+                `)
+                .eq('id', payload.new.id)
+                .single();
+
+              if (error) throw error;
+              if (!newOrder) {
+                console.error('No order data received for new order');
+                return;
+              }
+
+              console.log('Adding new order to state:', newOrder);
+              setOrders(prevOrders => {
+                // Pastikan order belum ada di state
+                if (prevOrders.some(order => order.id === newOrder.id)) {
+                  console.log('Order already exists in state, skipping');
+                  return prevOrders;
+                }
+                return [newOrder, ...prevOrders];
+              });
+            } catch (error) {
+              console.error('Error fetching new order:', error);
+            }
+          } else if (payload.eventType === 'UPDATE' && payload.new) {
+            try {
+              // Fetch order yang diupdate dengan semua relasinya
+              const { data: updatedOrder, error } = await supabase
+                .from('orders')
+                .select(`
+                  *,
+                  customer:customer_id (
+                    name,
+                    phone,
+                    address
+                  ),
+                  order_items (
+                    id,
+                    quantity,
+                    price_at_time,
+                    product:product_id (
+                      name,
+                      price
+                    )
+                  )
+                `)
+                .eq('id', payload.new.id)
+                .single();
+
+              if (error) throw error;
+              if (!updatedOrder) {
+                console.error('No order data received for update');
+                return;
+              }
+
+              console.log('Updating order in state:', {
+                orderId: updatedOrder.id,
+                oldStatus: payload.old?.status,
+                newStatus: updatedOrder.status,
+                fullOrder: updatedOrder,
+                payloadStatus: payload.new.status
+              });
+
+              setOrders(prevOrders => {
+                // Cari order yang akan diupdate
+                const orderToUpdate = prevOrders.find(order => order.id === updatedOrder.id);
+                if (!orderToUpdate) {
+                  console.log('Order not found in state, skipping update');
+                  return prevOrders;
+                }
+
+                // Gunakan status dari payload untuk update
+                const newStatus = payload.new.status;
+                if (!newStatus) {
+                  console.log('No status in payload, skipping update');
+                  return prevOrders;
+                }
+
+                // Pastikan status benar-benar berubah
+                if (orderToUpdate.status === newStatus) {
+                  console.log('Order status unchanged, skipping update');
+                  return prevOrders;
+                }
+
+                console.log('Updating order:', {
+                  id: orderToUpdate.id,
+                  oldStatus: orderToUpdate.status,
+                  newStatus: newStatus
+                });
+
+                // Update order dengan status dari payload
+                const updatedOrderWithNewStatus = {
+                  ...updatedOrder,
+                  status: newStatus
+                };
+
+                // Update hanya order yang sesuai
+                const newOrders = prevOrders.map(order => 
+                  order.id === updatedOrder.id ? updatedOrderWithNewStatus : order
+                );
+
+                // Verifikasi perubahan
+                const verifyUpdate = newOrders.find(order => order.id === updatedOrder.id);
+                console.log('Verifying update:', {
+                  orderId: verifyUpdate?.id,
+                  status: verifyUpdate?.status,
+                  expectedStatus: newStatus
+                });
+
+                return newOrders;
+              });
+            } catch (error) {
+              console.error('Error fetching updated order:', error);
+            }
+          } else if (payload.eventType === 'DELETE' && payload.old) {
+            console.log('Removing order from state:', payload.old.id);
             setOrders(prevOrders => 
               prevOrders.filter(order => order.id !== payload.old.id)
             );
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log(`Subscription status for vendor ${profile.id}:`, status);
+      });
 
     return () => {
-      orderSubscription.unsubscribe();
+      console.log(`Unsubscribing from Supabase realtime channel for vendor ${profile.id}`);
+      channel.unsubscribe();
     };
-  };
-
-  const fetchNewOrder = async (orderId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          customer:customer_id (
-            name,
-            phone,
-            address
-          ),
-          order_items (
-            id,
-            quantity,
-            price_at_time,
-            product:product_id (
-              name,
-              price
-            )
-          )
-        `)
-        .eq('id', orderId)
-        .single();
-
-      if (error) throw error;
-
-      setOrders(prevOrders => [data, ...prevOrders]);
-    } catch (error) {
-      console.error('Error fetching new order:', error);
-    }
   };
 
   const fetchOrders = async () => {
@@ -151,6 +256,8 @@ export function Orders() {
   const updateOrderStatus = async (orderId: string, status: Order['status']) => {
     setProcessingOrder(orderId);
     try {
+      console.log(`Updating order ${orderId} status to ${status}`);
+      
       const { error } = await supabase
         .from('orders')
         .update({ 
@@ -161,8 +268,9 @@ export function Orders() {
 
       if (error) throw error;
 
-      // Refresh orders list
-      await fetchOrders();
+      console.log(`Order ${orderId} status updated to ${status} successfully`);
+      
+      // Tidak perlu memanggil fetchOrders() karena kita akan menerima update melalui subscription
       setSelectedOrder(null); // Close modal after successful update
     } catch (error) {
       console.error('Error updating order:', error);
