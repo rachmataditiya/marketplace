@@ -1,18 +1,20 @@
-// Service Worker untuk menangani push notifications
-self.addEventListener('install', function (event) {
+console.log('[SW] Service Worker v1.0.1 loaded');
+
+// Instalasi awal
+self.addEventListener('install', (event) => {
   console.log('[SW] Installing...');
   event.waitUntil(self.skipWaiting());
 });
 
-self.addEventListener('activate', function (event) {
+// Aktivasi SW
+self.addEventListener('activate', (event) => {
   console.log('[SW] Activating...');
   event.waitUntil(self.clients.claim());
 });
 
-// Tangani event push dari server
-self.addEventListener('push', function (event) {
+// Terima push dari server (jika pakai push real)
+self.addEventListener('push', (event) => {
   console.log('[SW] Push received:', event);
-
   if (event.data) {
     try {
       const data = event.data.json();
@@ -29,22 +31,19 @@ self.addEventListener('push', function (event) {
         tag: data.tag || 'default-tag',
       };
 
-      event.waitUntil(
-        self.registration.showNotification(data.title, options)
-      );
+      event.waitUntil(self.registration.showNotification(data.title, options));
     } catch (err) {
-      console.error('[SW] Error parsing push event:', err);
+      console.error('[SW] Error parsing push data:', err);
     }
   }
 });
 
-// Tangani klik notifikasi
-self.addEventListener('notificationclick', function (event) {
-  console.log('[SW] Notification click:', event);
+// Klik notifikasi
+self.addEventListener('notificationclick', (event) => {
+  console.log('[SW] Notification clicked:', event.notification);
   event.notification.close();
 
   const targetUrl = event.notification.data?.url;
-
   if (targetUrl) {
     event.waitUntil(
       clients.matchAll({ type: 'window' }).then(windowClients => {
@@ -53,22 +52,24 @@ self.addEventListener('notificationclick', function (event) {
             return client.focus();
           }
         }
-        if (clients.openWindow) {
-          return clients.openWindow(targetUrl);
-        }
+        if (clients.openWindow) return clients.openWindow(targetUrl);
       })
     );
   }
 });
 
-// Tangani pesan dari halaman (test manual notifikasi)
-self.addEventListener('message', function (event) {
+// Terima pesan dari halaman
+self.addEventListener('message', (event) => {
   console.log('[SW] Message received:', event.data);
 
   if (event.data && event.data.type === 'SHOW_NOTIFICATION') {
     const { title, options } = event.data;
-
     showNotificationFromMessage(title, options);
+  }
+
+  // Support SKIP_WAITING untuk reload paksa SW
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
   }
 });
 
@@ -77,6 +78,6 @@ async function showNotificationFromMessage(title, options) {
     await self.registration.showNotification(title, options);
     console.log('[SW] Notification shown from message');
   } catch (error) {
-    console.error('[SW] Error showing notification from message:', error);
+    console.error('[SW] Error showing notification:', error);
   }
 }
