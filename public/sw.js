@@ -1,11 +1,11 @@
 // Service Worker untuk menangani push notifications
 self.addEventListener('push', function(event) {
-  console.log('Push event received:', event);
+  console.log('[Service Worker] Push event received:', event);
   
   if (event.data) {
-    console.log('Push event data:', event.data);
+    console.log('[Service Worker] Push event data:', event.data);
     const data = event.data.json();
-    console.log('Parsed push data:', data);
+    console.log('[Service Worker] Parsed push data:', data);
     
     const options = {
       body: data.body,
@@ -23,22 +23,24 @@ self.addEventListener('push', function(event) {
       ]
     };
 
-    console.log('Showing notification with options:', options);
+    console.log('[Service Worker] Showing notification with options:', options);
     event.waitUntil(
       self.registration.showNotification(data.title, options)
+        .then(() => console.log('[Service Worker] Notification shown successfully'))
+        .catch(error => console.error('[Service Worker] Error showing notification:', error))
     );
   } else {
-    console.log('Push event received but no data');
+    console.log('[Service Worker] Push event received but no data');
   }
 });
 
 // Handle notification click
 self.addEventListener('notificationclick', function(event) {
-  console.log('Notification click event:', event);
+  console.log('[Service Worker] Notification click event:', event);
   event.notification.close();
   
   if (event.action === 'view') {
-    console.log('Opening URL:', event.notification.data.url);
+    console.log('[Service Worker] Opening URL:', event.notification.data.url);
     event.waitUntil(
       clients.openWindow(event.notification.data.url)
     );
