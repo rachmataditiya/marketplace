@@ -115,20 +115,6 @@ export function VendorDashboard() {
         });
 
         console.log('Push notification subscription:', subscription);
-
-        // Simpan subscription ke database
-        const { error } = await supabase
-          .from('push_subscriptions')
-          .upsert({
-            user_id: profile?.id,
-            subscription: subscription.toJSON()
-          });
-
-        if (error) {
-          console.error('Error saving push subscription:', error);
-          return;
-        }
-
         console.log('Push notification setup completed successfully');
       } catch (error) {
         console.error('Error setting up push notifications:', error);
@@ -201,41 +187,14 @@ export function VendorDashboard() {
 
             // Send push notification
             try {
-              console.log('Fetching push subscriptions...');
-              const { data: subscriptions } = await supabase
-                .from('push_subscriptions')
-                .select('subscription')
-                .eq('user_id', profile.id);
-
-              console.log('Found subscriptions:', subscriptions);
-
-              if (subscriptions && subscriptions.length > 0) {
-                const subscription = subscriptions[0].subscription;
-                console.log('Using subscription:', subscription);
-                
-                // Send push notification using Supabase Edge Functions
-                console.log('Invoking send-push-notification function...');
-                const { error } = await supabase.functions.invoke('send-push-notification', {
-                  body: {
-                    subscription,
-                    notification: {
-                      title: 'Pesanan Baru',
-                      body: 'Ada pesanan baru yang membutuhkan perhatian Anda',
-                      url: '/vendor/orders'
-                    }
-                  }
-                });
-
-                if (error) {
-                  console.error('Error sending push notification:', error);
-                  throw error;
-                }
-                console.log('Push notification sent successfully');
-              } else {
-                console.log('No push subscriptions found for user');
+              const registration = await navigator.serviceWorker.ready;
+              const subscription = await registration.pushManager.getSubscription();
+              
+              if (subscription) {
+                await sendPushNotification(subscription);
               }
             } catch (error) {
-              console.error('Error in push notification process:', error);
+              console.error('Error sending push notification:', error);
             }
           }
         }
