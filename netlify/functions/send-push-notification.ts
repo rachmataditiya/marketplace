@@ -34,7 +34,8 @@ const handler: Handler = async (event) => {
     if (!vapidPublicKey || !vapidPrivateKey) {
       console.error('VAPID keys not found:', {
         hasPublicKey: !!vapidPublicKey,
-        hasPrivateKey: !!vapidPrivateKey
+        hasPrivateKey: !!vapidPrivateKey,
+        env: process.env
       });
       return {
         statusCode: 500,
