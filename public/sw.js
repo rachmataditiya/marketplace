@@ -62,4 +62,28 @@ self.addEventListener('notificationclick', function(event) {
       clients.openWindow(event.notification.data.url)
     );
   }
+});
+
+// Mendengarkan pesan dari client untuk menampilkan notifikasi
+self.addEventListener('message', function(event) {
+  console.log('[Service Worker] Message received:', event.data);
+  
+  if (event.data && event.data.type === 'SHOW_NOTIFICATION') {
+    const { title, options } = event.data;
+    console.log('[Service Worker] Showing notification from message:', { title, options });
+    
+    event.waitUntil(
+      self.registration.showNotification(title, options)
+        .then(() => {
+          console.log('[Service Worker] Notification shown successfully from message');
+          return self.registration.getNotifications();
+        })
+        .then(notifications => {
+          console.log('[Service Worker] Current notifications after message:', notifications);
+        })
+        .catch(error => {
+          console.error('[Service Worker] Error showing notification from message:', error);
+        })
+    );
+  }
 }); 

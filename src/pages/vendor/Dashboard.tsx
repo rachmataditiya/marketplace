@@ -262,14 +262,30 @@ export function VendorDashboard() {
               const registration = await navigator.serviceWorker.ready;
               console.log('Service worker ready:', registration);
               
-              const subscription = await registration.pushManager.getSubscription();
-              console.log('Current subscription:', subscription);
+              // Kirim notifikasi melalui service worker
+              registration.active?.postMessage({
+                type: 'SHOW_NOTIFICATION',
+                title: 'Pesanan Baru!',
+                options: {
+                  body: 'Ada pesanan baru yang membutuhkan perhatian Anda',
+                  icon: '/android-chrome-192x192.png',
+                  badge: '/android-chrome-192x192.png',
+                  vibrate: [100, 50, 100],
+                  data: {
+                    url: '/vendor/orders'
+                  },
+                  actions: [
+                    {
+                      action: 'view',
+                      title: 'Lihat Pesanan'
+                    }
+                  ],
+                  requireInteraction: true,
+                  tag: 'new-order-' + Date.now()
+                }
+              });
               
-              if (subscription) {
-                await sendPushNotification(subscription);
-              } else {
-                console.log('No active subscription found');
-              }
+              console.log('Notification message sent to service worker');
             } catch (error) {
               console.error('Error sending push notification:', error);
             }
