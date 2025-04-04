@@ -24,13 +24,16 @@ self.addEventListener('push', function(event) {
         self.registration.showNotification(data.title, options)
           .then(() => {
             console.log('[Service Worker] Notification shown successfully');
-            // Tambahkan log untuk memeriksa notifikasi yang ditampilkan
             return self.registration.getNotifications();
           })
           .then(notifications => {
             console.log('[Service Worker] Current notifications:', notifications);
           })
-          .catch(error => console.error('[Service Worker] Error showing notification:', error))
+          .catch(error => {
+            console.error('[Service Worker] Error showing notification:', error);
+            console.error('[Service Worker] Error details:', error.message);
+            console.error('[Service Worker] Error stack:', error.stack);
+          })
       );
     } catch (error) {
       console.error('[Service Worker] Error processing push event:', error);
