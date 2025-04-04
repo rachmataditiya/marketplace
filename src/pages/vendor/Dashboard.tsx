@@ -85,75 +85,93 @@ export function VendorDashboard() {
     }
   };
 
+  const setupPushNotifications = async () => {
+    try {
+      // Cek apakah service worker sudah terdaftar
+      const existingRegistration = await navigator.serviceWorker.getRegistration();
+      if (existingRegistration) {
+        console.log('Service worker already registered:', existingRegistration);
+        return;
+      }
+
+      // Request permission
+      const permission = await Notification.requestPermission();
+      
+      if (permission !== 'granted') {
+        console.log('Push notification permission denied');
+        return;
+      }
+
+      // Register service worker
+      const registration = await navigator.serviceWorker.register('/sw.js');
+      console.log('Service worker registered:', registration);
+
+      // Get VAPID public key
+      const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+
+      if (!vapidPublicKey) {
+        throw new Error('VAPID public key not found');
+      }
+
+      // Convert VAPID key to Uint8Array
+      const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
+
+      // Subscribe to push notifications
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey
+      });
+
+      console.log('Push notification setup completed:', {
+        endpoint: subscription.endpoint,
+        keys: {
+          p256dh: subscription.getKey('p256dh'),
+          auth: subscription.getKey('auth')
+        }
+      });
+
+      // Simpan subscription ke database
+      const { error } = await supabase
+        .from('push_subscriptions')
+        .upsert({
+          user_id: profile.id,
+          subscription: subscription.toJSON()
+        });
+
+      if (error) {
+        throw error;
+      }
+
+      // Setup visibility change handler
+      document.addEventListener('visibilitychange', async () => {
+        if (document.visibilityState === 'visible') {
+          console.log('Tab became visible, checking service worker...');
+          const registration = await navigator.serviceWorker.ready;
+          const subscription = await registration.pushManager.getSubscription();
+          console.log('Current subscription:', subscription);
+        }
+      });
+
+      // Periodically check service worker status
+      setInterval(async () => {
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.getSubscription();
+        console.log('Service worker status check:', {
+          active: registration.active,
+          subscription: subscription ? 'exists' : 'none'
+        });
+      }, 30000); // Check every 30 seconds
+
+    } catch (error) {
+      console.error('Error setting up push notifications:', error);
+    }
+  };
+
   // Request notification permission and setup push notifications
   useEffect(() => {
     if (!profile) return;
-
-    const setupPushNotifications = async () => {
-      try {
-        // Request permission
-        const permission = await Notification.requestPermission();
-        
-        if (permission !== 'granted') {
-          console.log('Push notification permission denied');
-          return;
-        }
-
-        // Register service worker
-        const registration = await navigator.serviceWorker.register('/sw.js');
-        console.log('Service worker registered:', registration);
-
-        // Get VAPID public key
-        const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
-
-        if (!vapidPublicKey) {
-          throw new Error('VAPID public key not found');
-        }
-
-        // Convert VAPID key to Uint8Array
-        const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
-
-        // Subscribe to push notifications
-        const subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey
-        });
-
-        console.log('Push notification setup completed:', {
-          endpoint: subscription.endpoint,
-          keys: {
-            p256dh: subscription.getKey('p256dh'),
-            auth: subscription.getKey('auth')
-          }
-        });
-
-        // Setup visibility change handler
-        document.addEventListener('visibilitychange', async () => {
-          if (document.visibilityState === 'visible') {
-            console.log('Tab became visible, checking service worker...');
-            const registration = await navigator.serviceWorker.ready;
-            const subscription = await registration.pushManager.getSubscription();
-            console.log('Current subscription:', subscription);
-          }
-        });
-
-        // Periodically check service worker status
-        setInterval(async () => {
-          const registration = await navigator.serviceWorker.ready;
-          const subscription = await registration.pushManager.getSubscription();
-          console.log('Service worker status check:', {
-            active: registration.active,
-            subscription: subscription ? 'exists' : 'none'
-          });
-        }, 30000); // Check every 30 seconds
-
-      } catch (error) {
-        console.error('Error setting up push notifications:', error);
-      }
-    };
-
     setupPushNotifications();
-  }, [profile]);
+  }, [profile?.id]); // Hanya jalankan ketika profile.id berubah
 
   // Hide sidebar when location changes
   useEffect(() => {
