@@ -33,7 +33,7 @@ const handler: Handler = async (event) => {
 
     // Set VAPID keys
     webpush.setVapidDetails(
-      'mailto:your-email@example.com', // Ganti dengan email Anda
+      'mailto:raditiya@me.com', // Ganti dengan email Anda
       vapidPublicKey,
       vapidPrivateKey
     );
