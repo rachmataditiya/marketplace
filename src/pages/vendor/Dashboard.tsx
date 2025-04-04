@@ -112,6 +112,14 @@ export function VendorDashboard() {
           endpoint: subscription.endpoint,
           key: subscription.getKey('p256dh')
         });
+
+        // Setup visibility change handler
+        document.addEventListener('visibilitychange', async () => {
+          if (document.visibilityState === 'visible') {
+            // Re-register service worker when tab becomes visible
+            await navigator.serviceWorker.register('/sw.js');
+          }
+        });
       } catch (error) {
         console.error('Error setting up push notifications:', error);
       }
@@ -128,6 +136,11 @@ export function VendorDashboard() {
   // Subscribe to new orders
   useEffect(() => {
     if (!profile) return;
+
+    // Setup keep-alive interval untuk Supabase realtime
+    const keepAliveInterval = setInterval(() => {
+      supabase.channel('keep-alive').subscribe();
+    }, 30000); // setiap 30 detik
 
     // Subscribe to new orders
     const orderSubscription = supabase
@@ -197,8 +210,9 @@ export function VendorDashboard() {
       )
       .subscribe();
 
-    // Cleanup subscription
+    // Cleanup subscriptions
     return () => {
+      clearInterval(keepAliveInterval);
       orderSubscription.unsubscribe();
     };
   }, [profile, navigate]);
