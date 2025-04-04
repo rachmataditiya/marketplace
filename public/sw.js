@@ -1,4 +1,14 @@
 // Service Worker untuk menangani push notifications
+self.addEventListener('install', function(event) {
+  console.log('[Service Worker] Installing Service Worker...');
+  event.waitUntil(self.skipWaiting());
+});
+
+self.addEventListener('activate', function(event) {
+  console.log('[Service Worker] Activating Service Worker...');
+  event.waitUntil(self.clients.claim());
+});
+
 self.addEventListener('push', function(event) {
   console.log('[Service Worker] Push event received:', event);
   
