@@ -81,25 +81,19 @@ export function VendorDashboard() {
 
     const setupPushNotifications = async () => {
       try {
-        console.log('Starting push notification setup...');
-        
         // Request permission
         const permission = await Notification.requestPermission();
-        console.log('Notification permission:', permission);
         
         if (permission !== 'granted') {
-          console.log('Notification permission denied');
+          console.log('Push notification permission denied');
           return;
         }
 
         // Register service worker
-        console.log('Registering service worker...');
         const registration = await navigator.serviceWorker.register('/sw.js');
-        console.log('Service worker registered:', registration);
 
         // Get VAPID public key
         const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
-        console.log('VAPID Public Key:', vapidPublicKey);
 
         if (!vapidPublicKey) {
           throw new Error('VAPID public key not found');
@@ -114,8 +108,10 @@ export function VendorDashboard() {
           applicationServerKey
         });
 
-        console.log('Push notification subscription:', subscription);
-        console.log('Push notification setup completed successfully');
+        console.log('Push notification setup completed:', {
+          endpoint: subscription.endpoint,
+          key: subscription.getKey('p256dh')
+        });
       } catch (error) {
         console.error('Error setting up push notifications:', error);
       }
