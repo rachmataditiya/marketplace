@@ -40,6 +40,15 @@ export function VendorDashboard() {
 
   const sendPushNotification = async (subscription: PushSubscription) => {
     try {
+      console.log('Attempting to send push notification...');
+      console.log('Subscription details:', {
+        endpoint: subscription.endpoint,
+        keys: {
+          p256dh: subscription.getKey('p256dh'),
+          auth: subscription.getKey('auth')
+        }
+      });
+
       const response = await fetch('/api/send-push-notification', {
         method: 'POST',
         headers: {
@@ -49,9 +58,9 @@ export function VendorDashboard() {
           subscription,
           notification: {
             title: 'Pesanan Baru!',
-            body: 'Ada pesanan baru yang masuk',
-            icon: '/icon-192x192.png',
-            badge: '/badge-72x72.png',
+            body: 'Ada pesanan baru yang membutuhkan perhatian Anda',
+            icon: '/android-chrome-192x192.png',
+            badge: '/android-chrome-192x192.png',
             data: {
               url: '/vendor/orders'
             },
@@ -66,7 +75,8 @@ export function VendorDashboard() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to send push notification');
+        const errorData = await response.json();
+        throw new Error(`Failed to send push notification: ${errorData.message || response.statusText}`);
       }
 
       console.log('Push notification sent successfully');
@@ -91,6 +101,7 @@ export function VendorDashboard() {
 
         // Register service worker
         const registration = await navigator.serviceWorker.register('/sw.js');
+        console.log('Service worker registered:', registration);
 
         // Get VAPID public key
         const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
@@ -110,16 +121,32 @@ export function VendorDashboard() {
 
         console.log('Push notification setup completed:', {
           endpoint: subscription.endpoint,
-          key: subscription.getKey('p256dh')
+          keys: {
+            p256dh: subscription.getKey('p256dh'),
+            auth: subscription.getKey('auth')
+          }
         });
 
         // Setup visibility change handler
         document.addEventListener('visibilitychange', async () => {
           if (document.visibilityState === 'visible') {
-            // Re-register service worker when tab becomes visible
-            await navigator.serviceWorker.register('/sw.js');
+            console.log('Tab became visible, checking service worker...');
+            const registration = await navigator.serviceWorker.ready;
+            const subscription = await registration.pushManager.getSubscription();
+            console.log('Current subscription:', subscription);
           }
         });
+
+        // Periodically check service worker status
+        setInterval(async () => {
+          const registration = await navigator.serviceWorker.ready;
+          const subscription = await registration.pushManager.getSubscription();
+          console.log('Service worker status check:', {
+            active: registration.active,
+            subscription: subscription ? 'exists' : 'none'
+          });
+        }, 30000); // Check every 30 seconds
+
       } catch (error) {
         console.error('Error setting up push notifications:', error);
       }
@@ -156,6 +183,7 @@ export function VendorDashboard() {
         async (payload) => {
           // Only count if it's an online order (customer_id !== vendor_id)
           if (payload.new.customer_id !== profile.id) {
+            console.log('New order detected:', payload.new);
             setNewOrdersCount(prev => prev + 1);
             
             // Show toast notification
@@ -196,11 +224,17 @@ export function VendorDashboard() {
 
             // Send push notification
             try {
+              console.log('Attempting to send push notification for new order...');
               const registration = await navigator.serviceWorker.ready;
+              console.log('Service worker ready:', registration);
+              
               const subscription = await registration.pushManager.getSubscription();
+              console.log('Current subscription:', subscription);
               
               if (subscription) {
                 await sendPushNotification(subscription);
+              } else {
+                console.log('No active subscription found');
               }
             } catch (error) {
               console.error('Error sending push notification:', error);
