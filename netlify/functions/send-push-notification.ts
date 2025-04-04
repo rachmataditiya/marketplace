@@ -61,8 +61,22 @@ const handler: Handler = async (event) => {
     console.log('Sending push notification to:', subscription.endpoint);
     console.log('Notification data:', notification);
 
+    // Format data notifikasi
+    const pushData = {
+      title: notification.title,
+      body: notification.body,
+      icon: notification.icon,
+      badge: notification.badge,
+      data: notification.data || {},
+      actions: notification.actions || [],
+      requireInteraction: true,
+      tag: notification.tag || 'default-tag'
+    };
+
+    console.log('Formatted push data:', pushData);
+
     // Kirim push notification
-    await webpush.sendNotification(subscription, JSON.stringify(notification));
+    await webpush.sendNotification(subscription, JSON.stringify(pushData));
 
     console.log('Push notification sent successfully');
 
