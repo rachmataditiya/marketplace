@@ -1,23 +1,23 @@
 // Service Worker untuk menangani push notifications
-self.addEventListener('install', function(event) {
-  console.log('[Service Worker] Installing Service Worker...');
+self.addEventListener('install', function (event) {
+  console.log('[SW] Installing...');
   event.waitUntil(self.skipWaiting());
 });
 
-self.addEventListener('activate', function(event) {
-  console.log('[Service Worker] Activating Service Worker...');
+self.addEventListener('activate', function (event) {
+  console.log('[SW] Activating...');
   event.waitUntil(self.clients.claim());
 });
 
-self.addEventListener('push', function(event) {
-  console.log('[Service Worker] Push event received:', event);
-  
+// Tangani event push dari server
+self.addEventListener('push', function (event) {
+  console.log('[SW] Push received:', event);
+
   if (event.data) {
     try {
-      console.log('[Service Worker] Push event data:', event.data);
       const data = event.data.json();
-      console.log('[Service Worker] Parsed push data:', data);
-      
+      console.log('[SW] Push data:', data);
+
       const options = {
         body: data.body,
         icon: data.icon || '/android-chrome-192x192.png',
@@ -26,81 +26,57 @@ self.addEventListener('push', function(event) {
         data: data.data || {},
         actions: data.actions || [],
         requireInteraction: true,
-        tag: data.tag || 'default-tag'
+        tag: data.tag || 'default-tag',
       };
 
-      console.log('[Service Worker] Showing notification with options:', options);
-      
-      // Pastikan event.waitUntil digunakan dengan benar
       event.waitUntil(
-        Promise.resolve()
-          .then(() => {
-            console.log('[Service Worker] About to show notification');
-            return self.registration.showNotification(data.title, options);
-          })
-          .then(() => {
-            console.log('[Service Worker] Notification shown successfully');
-            return self.registration.getNotifications();
-          })
-          .then(notifications => {
-            console.log('[Service Worker] Current notifications:', notifications);
-          })
-          .catch(error => {
-            console.error('[Service Worker] Error showing notification:', error);
-            console.error('[Service Worker] Error details:', error.message);
-            console.error('[Service Worker] Error stack:', error.stack);
-          })
+        self.registration.showNotification(data.title, options)
       );
-    } catch (error) {
-      console.error('[Service Worker] Error processing push event:', error);
-      console.error('[Service Worker] Error details:', error.message);
-      console.error('[Service Worker] Error stack:', error.stack);
+    } catch (err) {
+      console.error('[SW] Error parsing push event:', err);
     }
-  } else {
-    console.log('[Service Worker] Push event received but no data');
   }
 });
 
-// Handle notification click
-self.addEventListener('notificationclick', function(event) {
-  console.log('[Service Worker] Notification click event:', event);
+// Tangani klik notifikasi
+self.addEventListener('notificationclick', function (event) {
+  console.log('[SW] Notification click:', event);
   event.notification.close();
-  
-  if (event.action === 'view') {
-    console.log('[Service Worker] Opening URL:', event.notification.data.url);
+
+  const targetUrl = event.notification.data?.url;
+
+  if (targetUrl) {
     event.waitUntil(
-      clients.openWindow(event.notification.data.url)
+      clients.matchAll({ type: 'window' }).then(windowClients => {
+        for (const client of windowClients) {
+          if (client.url === targetUrl && 'focus' in client) {
+            return client.focus();
+          }
+        }
+        if (clients.openWindow) {
+          return clients.openWindow(targetUrl);
+        }
+      })
     );
   }
 });
 
-// Mendengarkan pesan dari client untuk menampilkan notifikasi
-self.addEventListener('message', function(event) {
-  console.log('[Service Worker] Message received:', event.data);
-  
+// Tangani pesan dari halaman (test manual notifikasi)
+self.addEventListener('message', function (event) {
+  console.log('[SW] Message received:', event.data);
+
   if (event.data && event.data.type === 'SHOW_NOTIFICATION') {
     const { title, options } = event.data;
-    console.log('[Service Worker] Showing notification from message:', { title, options });
-    
-    // Pastikan event.waitUntil digunakan dengan benar
-    event.waitUntil(
-      Promise.resolve()
-        .then(() => {
-          console.log('[Service Worker] About to show notification from message');
-          return self.registration.showNotification(title, options);
-        })
-        .then(() => {
-          console.log('[Service Worker] Notification shown successfully from message');
-          return self.registration.getNotifications();
-        })
-        .then(notifications => {
-          console.log('[Service Worker] Current notifications after message:', notifications);
-        })
-        .catch(error => {
-          console.error('[Service Worker] Error showing notification from message:', error);
-          console.error('[Service Worker] Error details:', error.message);
-          console.error('[Service Worker] Error stack:', error.stack);
-        })
-    );
+
+    showNotificationFromMessage(title, options);
   }
-}); 
+});
+
+async function showNotificationFromMessage(title, options) {
+  try {
+    await self.registration.showNotification(title, options);
+    console.log('[SW] Notification shown from message');
+  } catch (error) {
+    console.error('[SW] Error showing notification from message:', error);
+  }
+}
