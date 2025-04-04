@@ -39,6 +39,20 @@ export function Orders() {
     }
   }, [profile]);
 
+  // Tambahan useEffect untuk refetch orders saat halaman kembali aktif
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && profile) {
+        fetchOrders();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [profile]);
+
   const setupRealtimeSubscription = () => {
     if (!profile) return;
 
