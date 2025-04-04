@@ -258,36 +258,39 @@ export function VendorDashboard() {
 
             // Send push notification
             try {
-              console.log('Attempting to send push notification for new order...');
+              console.log('Attempting to send notification for new order...');
               const registration = await navigator.serviceWorker.ready;
               console.log('Service worker ready:', registration);
               
               // Kirim notifikasi melalui service worker
-              registration.active?.postMessage({
-                type: 'SHOW_NOTIFICATION',
-                title: 'Pesanan Baru!',
-                options: {
-                  body: 'Ada pesanan baru yang membutuhkan perhatian Anda',
-                  icon: '/android-chrome-192x192.png',
-                  badge: '/android-chrome-192x192.png',
-                  vibrate: [100, 50, 100],
-                  data: {
-                    url: '/vendor/orders'
-                  },
-                  actions: [
-                    {
-                      action: 'view',
-                      title: 'Lihat Pesanan'
-                    }
-                  ],
-                  requireInteraction: true,
-                  tag: 'new-order-' + Date.now()
-                }
-              });
-              
-              console.log('Notification message sent to service worker');
+              if (registration.active) {
+                registration.active.postMessage({
+                  type: 'SHOW_NOTIFICATION',
+                  title: 'Pesanan Baru!',
+                  options: {
+                    body: 'Ada pesanan baru yang membutuhkan perhatian Anda',
+                    icon: '/android-chrome-192x192.png',
+                    badge: '/android-chrome-192x192.png',
+                    vibrate: [100, 50, 100],
+                    data: {
+                      url: '/vendor/orders'
+                    },
+                    actions: [
+                      {
+                        action: 'view',
+                        title: 'Lihat Pesanan'
+                      }
+                    ],
+                    requireInteraction: true,
+                    tag: 'new-order-' + Date.now()
+                  }
+                });
+                console.log('Notification message sent to service worker');
+              } else {
+                console.log('Service worker is not active');
+              }
             } catch (error) {
-              console.error('Error sending push notification:', error);
+              console.error('Error sending notification:', error);
             }
           }
         }
