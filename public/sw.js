@@ -72,8 +72,13 @@ self.addEventListener('message', function(event) {
     const { title, options } = event.data;
     console.log('[Service Worker] Showing notification from message:', { title, options });
     
+    // Pastikan event.waitUntil digunakan dengan benar
     event.waitUntil(
-      self.registration.showNotification(title, options)
+      Promise.resolve()
+        .then(() => {
+          console.log('[Service Worker] About to show notification from message');
+          return self.registration.showNotification(title, options);
+        })
         .then(() => {
           console.log('[Service Worker] Notification shown successfully from message');
           return self.registration.getNotifications();
@@ -83,6 +88,8 @@ self.addEventListener('message', function(event) {
         })
         .catch(error => {
           console.error('[Service Worker] Error showing notification from message:', error);
+          console.error('[Service Worker] Error details:', error.message);
+          console.error('[Service Worker] Error stack:', error.stack);
         })
     );
   }
